@@ -118,7 +118,7 @@ class Node(BaseModel, ABC):
                     uuid=self.uuid,
                 )
 
-            case GraphProvider.KUZU:
+            case GraphProvider.KUZU | GraphProvider.LADYBUGDB:
                 for label in ['Episodic', 'Community']:
                     await driver.execute_query(
                         f"""
@@ -187,7 +187,7 @@ class Node(BaseModel, ABC):
                         batch_size=batch_size,
                     )
 
-            case GraphProvider.KUZU:
+            case GraphProvider.KUZU | GraphProvider.LADYBUGDB:
                 for label in ['Episodic', 'Community']:
                     await driver.execute_query(
                         f"""
@@ -243,7 +243,7 @@ class Node(BaseModel, ABC):
                         """,
                         uuids=uuids,
                     )
-            case GraphProvider.KUZU:
+            case GraphProvider.KUZU | GraphProvider.LADYBUGDB:
                 for label in ['Episodic', 'Community']:
                     await driver.execute_query(
                         f"""
@@ -493,7 +493,9 @@ class EntityNode(Node):
         text = self.name.replace('\n', ' ')
         self.name_embedding = await embedder.create(input_data=[text])
         end = time()
-        logger.debug(f'embedded entity {self.uuid} name ({len(text)} chars) in {(end - start) * 1000} ms')
+        logger.debug(
+            f'embedded entity {self.uuid} name ({len(text)} chars) in {(end - start) * 1000} ms'
+        )
 
         return self.name_embedding
 
@@ -542,7 +544,11 @@ class EntityNode(Node):
             'created_at': self.created_at,
         }
 
-        if driver.provider == GraphProvider.KUZU:
+        if (
+            driver.provider == GraphProvider.KUZU
+            or driver.provider == GraphProvider.LADYBUGDB
+           
+        ):
             entity_data['attributes'] = json.dumps(self.attributes)
             entity_data['labels'] = list(set(self.labels + ['Entity']))
             result = await driver.execute_query(
@@ -698,7 +704,9 @@ class CommunityNode(Node):
         text = self.name.replace('\n', ' ')
         self.name_embedding = await embedder.create(input_data=[text])
         end = time()
-        logger.debug(f'embedded entity {self.uuid} name ({len(text)} chars) in {(end - start) * 1000} ms')
+        logger.debug(
+            f'embedded entity {self.uuid} name ({len(text)} chars) in {(end - start) * 1000} ms'
+        )
 
         return self.name_embedding
 

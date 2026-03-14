@@ -56,7 +56,11 @@ async def get_community_clusters(
             match_query = """
                 MATCH (n:Entity {group_id: $group_id, uuid: $uuid})-[e:RELATES_TO]-(m: Entity {group_id: $group_id})
             """
-            if driver.provider == GraphProvider.KUZU:
+            if (
+                driver.provider == GraphProvider.KUZU
+                or driver.provider == GraphProvider.LADYBUGDB
+               
+            ):
                 match_query = """
                 MATCH (n:Entity {group_id: $group_id, uuid: $uuid})-[:RELATES_TO]-(e:RelatesToNode_)-[:RELATES_TO]-(m: Entity {group_id: $group_id})
                 """
@@ -207,9 +211,7 @@ async def build_community(
     )
     community_edges = build_community_edges(community_cluster, community_node, now)
 
-    logger.debug(
-        f'Built community {community_node.uuid} with {len(community_edges)} edges'
-    )
+    logger.debug(f'Built community {community_node.uuid} with {len(community_edges)} edges')
 
     return community_node, community_edges
 
@@ -285,7 +287,11 @@ async def determine_entity_community(
     match_query = """
         MATCH (c:Community)-[:HAS_MEMBER]->(m:Entity)-[:RELATES_TO]-(n:Entity {uuid: $entity_uuid})
     """
-    if driver.provider == GraphProvider.KUZU:
+    if (
+        driver.provider == GraphProvider.KUZU
+        or driver.provider == GraphProvider.LADYBUGDB
+       
+    ):
         match_query = """
             MATCH (c:Community)-[:HAS_MEMBER]->(m:Entity)-[:RELATES_TO]-(e:RelatesToNode_)-[:RELATES_TO]-(n:Entity {uuid: $entity_uuid})
         """

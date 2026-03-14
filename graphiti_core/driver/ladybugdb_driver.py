@@ -17,22 +17,34 @@ limitations under the License.
 import logging
 from typing import Any
 
-import kuzu
+import real_ladybug
 
 from graphiti_core.driver.driver import GraphDriver, GraphDriverSession, GraphProvider
-from graphiti_core.driver.kuzu.operations.community_edge_ops import KuzuCommunityEdgeOperations
-from graphiti_core.driver.kuzu.operations.community_node_ops import KuzuCommunityNodeOperations
-from graphiti_core.driver.kuzu.operations.entity_edge_ops import KuzuEntityEdgeOperations
-from graphiti_core.driver.kuzu.operations.entity_node_ops import KuzuEntityNodeOperations
-from graphiti_core.driver.kuzu.operations.episode_node_ops import KuzuEpisodeNodeOperations
-from graphiti_core.driver.kuzu.operations.episodic_edge_ops import KuzuEpisodicEdgeOperations
-from graphiti_core.driver.kuzu.operations.graph_ops import KuzuGraphMaintenanceOperations
-from graphiti_core.driver.kuzu.operations.has_episode_edge_ops import KuzuHasEpisodeEdgeOperations
-from graphiti_core.driver.kuzu.operations.next_episode_edge_ops import (
-    KuzuNextEpisodeEdgeOperations,
+from graphiti_core.driver.ladybugdb.operations.community_edge_ops import (
+    LadybugDBCommunityEdgeOperations,
 )
-from graphiti_core.driver.kuzu.operations.saga_node_ops import KuzuSagaNodeOperations
-from graphiti_core.driver.kuzu.operations.search_ops import KuzuSearchOperations
+from graphiti_core.driver.ladybugdb.operations.community_node_ops import (
+    LadybugDBCommunityNodeOperations,
+)
+from graphiti_core.driver.ladybugdb.operations.entity_edge_ops import LadybugDBEntityEdgeOperations
+from graphiti_core.driver.ladybugdb.operations.entity_node_ops import LadybugDBEntityNodeOperations
+from graphiti_core.driver.ladybugdb.operations.episode_node_ops import (
+    LadybugDBEpisodeNodeOperations,
+)
+from graphiti_core.driver.ladybugdb.operations.episodic_edge_ops import (
+    LadybugDBEpisodicEdgeOperations,
+)
+from graphiti_core.driver.ladybugdb.operations.graph_ops import (
+    LadybugDBGraphMaintenanceOperations,
+)
+from graphiti_core.driver.ladybugdb.operations.has_episode_edge_ops import (
+    LadybugDBHasEpisodeEdgeOperations,
+)
+from graphiti_core.driver.ladybugdb.operations.next_episode_edge_ops import (
+    LadybugDBNextEpisodeEdgeOperations,
+)
+from graphiti_core.driver.ladybugdb.operations.saga_node_ops import LadybugDBSagaNodeOperations
+from graphiti_core.driver.ladybugdb.operations.search_ops import LadybugDBSearchOperations
 from graphiti_core.driver.operations.community_edge_ops import CommunityEdgeOperations
 from graphiti_core.driver.operations.community_node_ops import CommunityNodeOperations
 from graphiti_core.driver.operations.entity_edge_ops import EntityEdgeOperations
@@ -51,6 +63,7 @@ logger = logging.getLogger(__name__)
 # As Kuzu currently does not support creating full text indexes on edge properties,
 # we work around this by representing (n:Entity)-[:RELATES_TO]->(m:Entity) as
 # (n)-[:RELATES_TO]->(e:RelatesToNode_)-[:RELATES_TO]->(m).
+# LadybugDB is a fork of Kuzu, so it uses the same schema.
 SCHEMA_QUERIES = """
     CREATE NODE TABLE IF NOT EXISTS Episodic (
         uuid STRING PRIMARY KEY,
@@ -132,8 +145,8 @@ SCHEMA_QUERIES = """
 """
 
 
-class KuzuDriver(GraphDriver):
-    provider: GraphProvider = GraphProvider.KUZU
+class LadybugDBDriver(GraphDriver):
+    provider: GraphProvider = GraphProvider.LADYBUGDB
     aoss_client: None = None
 
     def __init__(
@@ -142,25 +155,27 @@ class KuzuDriver(GraphDriver):
         max_concurrent_queries: int = 1,
     ):
         super().__init__()
-        self.db = kuzu.Database(db)
+        self.db = real_ladybug.Database(db)
         self._database = db
 
         self.setup_schema()
 
-        self.client = kuzu.AsyncConnection(self.db, max_concurrent_queries=max_concurrent_queries)
+        self.client = real_ladybug.AsyncConnection(
+            self.db, max_concurrent_queries=max_concurrent_queries
+        )
 
-        # Instantiate Kuzu operations
-        self._entity_node_ops = KuzuEntityNodeOperations()
-        self._episode_node_ops = KuzuEpisodeNodeOperations()
-        self._community_node_ops = KuzuCommunityNodeOperations()
-        self._saga_node_ops = KuzuSagaNodeOperations()
-        self._entity_edge_ops = KuzuEntityEdgeOperations()
-        self._episodic_edge_ops = KuzuEpisodicEdgeOperations()
-        self._community_edge_ops = KuzuCommunityEdgeOperations()
-        self._has_episode_edge_ops = KuzuHasEpisodeEdgeOperations()
-        self._next_episode_edge_ops = KuzuNextEpisodeEdgeOperations()
-        self._search_ops = KuzuSearchOperations()
-        self._graph_ops = KuzuGraphMaintenanceOperations()
+        # Instantiate LadybugDB operations
+        self._entity_node_ops = LadybugDBEntityNodeOperations()
+        self._episode_node_ops = LadybugDBEpisodeNodeOperations()
+        self._community_node_ops = LadybugDBCommunityNodeOperations()
+        self._saga_node_ops = LadybugDBSagaNodeOperations()
+        self._entity_edge_ops = LadybugDBEntityEdgeOperations()
+        self._episodic_edge_ops = LadybugDBEpisodicEdgeOperations()
+        self._community_edge_ops = LadybugDBCommunityEdgeOperations()
+        self._has_episode_edge_ops = LadybugDBHasEpisodeEdgeOperations()
+        self._next_episode_edge_ops = LadybugDBNextEpisodeEdgeOperations()
+        self._search_ops = LadybugDBSearchOperations()
+        self._graph_ops = LadybugDBGraphMaintenanceOperations()
 
     # --- Operations properties ---
 
@@ -220,7 +235,7 @@ class KuzuDriver(GraphDriver):
             results = await self.client.execute(cypher_query_, parameters=params)
         except Exception as e:
             params = {k: (v[:5] if isinstance(v, list) else v) for k, v in params.items()}
-            logger.error(f'Error executing Kuzu query: {e}\n{cypher_query_}\n{params}')
+            logger.error(f'Error executing LadybugDB query: {e}\n{cypher_query_}\n{params}')
             raise
 
         if not results:
@@ -233,7 +248,7 @@ class KuzuDriver(GraphDriver):
         return dict_results, None, None  # type: ignore
 
     def session(self, _database: str | None = None) -> GraphDriverSession:
-        return KuzuDriverSession(self)
+        return LadybugDBDriverSession(self)
 
     async def close(self):
         # Do not explicitly close the connection, instead rely on GC.
@@ -243,13 +258,13 @@ class KuzuDriver(GraphDriver):
         pass
 
     async def build_indices_and_constraints(self, delete_existing: bool = False):
-        # Kuzu doesn't support dynamic index creation like Neo4j or FalkorDB
+        # LadybugDB doesn't support dynamic index creation like Neo4j or FalkorDB
         # Schema and indices are created during setup_schema()
-        # This method is required by the abstract base class but is a no-op for Kuzu
+        # This method is required by the abstract base class but is a no-op for LadybugDB
         pass
 
     def setup_schema(self):
-        conn = kuzu.Connection(self.db)
+        conn = real_ladybug.Connection(self.db)
 
         # Create tables (idempotent with IF NOT EXISTS)
         conn.execute(SCHEMA_QUERIES)
@@ -258,7 +273,7 @@ class KuzuDriver(GraphDriver):
         from graphiti_core.driver.driver import GraphProvider
         from graphiti_core.graph_queries import get_fulltext_indices
 
-        fts_queries = get_fulltext_indices(GraphProvider.KUZU)
+        fts_queries = get_fulltext_indices(GraphProvider.LADYBUGDB)
         for query in fts_queries:
             try:
                 conn.execute(query)
@@ -272,17 +287,17 @@ class KuzuDriver(GraphDriver):
         conn.close()
 
 
-class KuzuDriverSession(GraphDriverSession):
-    provider = GraphProvider.KUZU
+class LadybugDBDriverSession(GraphDriverSession):
+    provider = GraphProvider.LADYBUGDB
 
-    def __init__(self, driver: KuzuDriver):
+    def __init__(self, driver: LadybugDBDriver):
         self.driver = driver
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        # No cleanup needed for Kuzu, but method must exist.
+        # No cleanup needed for LadybugDB, but method must exist.
         pass
 
     async def close(self):

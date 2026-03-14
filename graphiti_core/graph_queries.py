@@ -51,6 +51,9 @@ def get_range_indices(provider: GraphProvider) -> list[LiteralString]:
     if provider == GraphProvider.KUZU:
         return []
 
+    if provider == GraphProvider.LADYBUGDB:
+        return []
+
     return [
         'CREATE INDEX entity_uuid IF NOT EXISTS FOR (n:Entity) ON (n.uuid)',
         'CREATE INDEX episode_uuid IF NOT EXISTS FOR (n:Episodic) ON (n.uuid)',
@@ -128,6 +131,14 @@ def get_fulltext_indices(provider: GraphProvider) -> list[LiteralString]:
             "CALL CREATE_FTS_INDEX('RelatesToNode_', 'edge_name_and_fact', ['name', 'fact']);",
         ]
 
+    if provider == GraphProvider.LADYBUGDB:
+        return [
+            "CALL CREATE_FTS_INDEX('Episodic', 'episode_content', ['content', 'source', 'source_description']);",
+            "CALL CREATE_FTS_INDEX('Entity', 'node_name_and_summary', ['name', 'summary']);",
+            "CALL CREATE_FTS_INDEX('Community', 'community_name', ['name']);",
+            "CALL CREATE_FTS_INDEX('RelatesToNode_', 'edge_name_and_fact', ['name', 'fact']);",
+        ]
+
     return [
         """CREATE FULLTEXT INDEX episode_content IF NOT EXISTS
         FOR (e:Episodic) ON EACH [e.content, e.source, e.source_description, e.group_id]""",
@@ -149,6 +160,10 @@ def get_nodes_query(name: str, query: str, limit: int, provider: GraphProvider) 
         label = INDEX_TO_LABEL_KUZU_MAPPING[name]
         return f"CALL QUERY_FTS_INDEX('{label}', '{name}', {query}, TOP := $limit)"
 
+    if provider == GraphProvider.LADYBUGDB:
+        label = INDEX_TO_LABEL_KUZU_MAPPING[name]
+        return f"CALL QUERY_FTS_INDEX('{label}', '{name}', {query}, TOP := $limit)"
+
     return f'CALL db.index.fulltext.queryNodes("{name}", {query}, {{limit: $limit}})'
 
 
@@ -160,6 +175,9 @@ def get_vector_cosine_func_query(vec1, vec2, provider: GraphProvider) -> str:
     if provider == GraphProvider.KUZU:
         return f'array_cosine_similarity({vec1}, {vec2})'
 
+    if provider == GraphProvider.LADYBUGDB:
+        return f'array_cosine_similarity({vec1}, {vec2})'
+
     return f'vector.similarity.cosine({vec1}, {vec2})'
 
 
@@ -169,6 +187,10 @@ def get_relationships_query(name: str, limit: int, provider: GraphProvider) -> s
         return f"CALL db.idx.fulltext.queryRelationships('{label}', $query)"
 
     if provider == GraphProvider.KUZU:
+        label = INDEX_TO_LABEL_KUZU_MAPPING[name]
+        return f"CALL QUERY_FTS_INDEX('{label}', '{name}', cast($query AS STRING), TOP := $limit)"
+
+    if provider == GraphProvider.LADYBUGDB:
         label = INDEX_TO_LABEL_KUZU_MAPPING[name]
         return f"CALL QUERY_FTS_INDEX('{label}', '{name}', cast($query AS STRING), TOP := $limit)"
 

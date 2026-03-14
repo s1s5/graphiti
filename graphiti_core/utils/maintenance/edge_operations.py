@@ -492,9 +492,7 @@ async def resolve_extracted_edge(
     """
     if len(related_edges) == 0 and len(existing_edges) == 0:
         # Still extract custom attributes even when no dedup/invalidation is needed
-        edge_model = (
-            edge_type_candidates.get(extracted_edge.name) if edge_type_candidates else None
-        )
+        edge_model = edge_type_candidates.get(extracted_edge.name) if edge_type_candidates else None
         if edge_model is not None and len(edge_model.model_fields) != 0:
             edge_attributes_context = {
                 'fact': extracted_edge.fact,
@@ -691,7 +689,11 @@ async def filter_existing_duplicate_of_edges(
             routing_='r',
         )
     else:
-        if driver.provider == GraphProvider.KUZU:
+        if (
+            driver.provider == GraphProvider.KUZU
+            or driver.provider == GraphProvider.LADYBUGDB
+           
+        ):
             query = """
                 UNWIND $duplicate_node_uuids AS duplicate
                 MATCH (n:Entity {uuid: duplicate.src})-[:RELATES_TO]->(e:RelatesToNode_ {name: 'IS_DUPLICATE_OF'})-[:RELATES_TO]->(m:Entity {uuid: duplicate.dst})
