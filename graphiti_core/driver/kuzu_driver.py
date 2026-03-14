@@ -143,6 +143,7 @@ class KuzuDriver(GraphDriver):
     ):
         super().__init__()
         self.db = kuzu.Database(db)
+        self._database = db
 
         self.setup_schema()
 
@@ -249,7 +250,25 @@ class KuzuDriver(GraphDriver):
 
     def setup_schema(self):
         conn = kuzu.Connection(self.db)
+        
+        # Create tables (idempotent with IF NOT EXISTS)
         conn.execute(SCHEMA_QUERIES)
+        
+        # Create FTS indexes (not idempotent, handle existing gracefully)
+        from graphiti_core.driver.driver import GraphProvider
+        from graphiti_core.graph_queries import get_fulltext_indices
+        
+        fts_queries = get_fulltext_indices(GraphProvider.KUZU)
+        for query in fts_queries:
+            try:
+                conn.execute(query)
+            except RuntimeError as e:
+                if 'already exists' in str(e):
+                    # Index already exists, skip
+                    pass
+                else:
+                    raise
+        
         conn.close()
 
 
