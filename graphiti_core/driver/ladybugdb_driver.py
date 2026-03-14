@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import logging
+from datetime import datetime
 from typing import Any
 
 import real_ladybug
@@ -226,10 +227,25 @@ class LadybugDBDriver(GraphDriver):
     async def execute_query(
         self, cypher_query_: str, **kwargs: Any
     ) -> tuple[list[dict[str, Any]] | list[list[dict[str, Any]]], None, None]:
-        params = {k: v for k, v in kwargs.items() if v is not None}
+        # Handle None values for date fields - LadybugDB expects TIMESTAMP type
+        date_fields = ('valid_at', 'invalid_at', 'expired_at', 'created_at')
+        params = {}
+        for k, v in kwargs.items():
+            if v is None:
+                if k in date_fields:
+                    # Use epoch datetime as default for date fields (LadybugDB accepts datetime objects)
+                    params[k] = datetime(1970, 1, 1, 0, 0, 0)
+                else:
+                    params[k] = v
+            else:
+                params[k] = v
         # Kuzu does not support these parameters.
         params.pop('database_', None)
         params.pop('routing_', None)
+
+        # Debug: Log query and params on error
+        logger.debug(f'LadybugDB query: {cypher_query_}')
+        logger.debug(f'LadybugDB params: {params}')
 
         try:
             results = await self.client.execute(cypher_query_, parameters=params)
@@ -268,6 +284,10 @@ class LadybugDBDriver(GraphDriver):
 
         # Create tables (idempotent with IF NOT EXISTS)
         conn.execute(SCHEMA_QUERIES)
+
+        # Load FTS extension for fulltext search indexes
+        conn.execute('INSTALL FTS;')
+        conn.execute('LOAD EXTENSION FTS;')
 
         # Create FTS indexes (not idempotent, handle existing gracefully)
         from graphiti_core.driver.driver import GraphProvider
@@ -309,9 +329,22 @@ class LadybugDBDriverSession(GraphDriverSession):
         return await func(self, *args, **kwargs)
 
     async def run(self, query: str | list, **kwargs: Any) -> Any:
+        # Convert date fields for LadybugDB
+        date_fields = ('valid_at', 'invalid_at', 'expired_at', 'created_at')
+        processed_kwargs = {}
+        for k, v in kwargs.items():
+            if v is None:
+                if k in date_fields:
+                    # Use epoch datetime as default for date fields (LadybugDB accepts datetime objects)
+                    processed_kwargs[k] = datetime(1970, 1, 1, 0, 0, 0)
+                else:
+                    processed_kwargs[k] = v
+            else:
+                processed_kwargs[k] = v
+
         if isinstance(query, list):
             for cypher, params in query:
                 await self.driver.execute_query(cypher, **params)
         else:
-            await self.driver.execute_query(query, **kwargs)
+            await self.driver.execute_query(query, **processed_kwargs)
         return None

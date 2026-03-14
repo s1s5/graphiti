@@ -961,18 +961,19 @@ def get_episodic_edge_from_record(record: Any) -> EpisodicEdge:
 
 def get_entity_edge_from_record(record: Any, provider: GraphProvider) -> EntityEdge:
     episodes = record['episodes']
-    if provider == GraphProvider.KUZU:
+    if provider == GraphProvider.KUZU or provider == GraphProvider.LADYBUGDB:
         attributes = json.loads(record['attributes']) if record['attributes'] else {}
     else:
         attributes = record['attributes']
-        attributes.pop('uuid', None)
-        attributes.pop('source_node_uuid', None)
-        attributes.pop('target_node_uuid', None)
-        attributes.pop('fact', None)
-        attributes.pop('fact_embedding', None)
-        attributes.pop('name', None)
-        attributes.pop('group_id', None)
-        attributes.pop('episodes', None)
+        if isinstance(attributes, dict):
+            attributes.pop('uuid', None)
+            attributes.pop('source_node_uuid', None)
+            attributes.pop('target_node_uuid', None)
+            attributes.pop('fact', None)
+            attributes.pop('fact_embedding', None)
+            attributes.pop('name', None)
+            attributes.pop('group_id', None)
+            attributes.pop('episodes', None)
         attributes.pop('created_at', None)
         attributes.pop('expired_at', None)
         attributes.pop('valid_at', None)

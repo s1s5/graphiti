@@ -1014,17 +1014,18 @@ def get_episodic_node_from_record(record: Any) -> EpisodicNode:
 
 
 def get_entity_node_from_record(record: Any, provider: GraphProvider) -> EntityNode:
-    if provider == GraphProvider.KUZU:
+    if provider == GraphProvider.KUZU or provider == GraphProvider.LADYBUGDB:
         attributes = json.loads(record['attributes']) if record['attributes'] else {}
     else:
         attributes = record['attributes']
-        attributes.pop('uuid', None)
-        attributes.pop('name', None)
-        attributes.pop('group_id', None)
-        attributes.pop('name_embedding', None)
-        attributes.pop('summary', None)
-        attributes.pop('created_at', None)
-        attributes.pop('labels', None)
+        if isinstance(attributes, dict):
+            attributes.pop('uuid', None)
+            attributes.pop('name', None)
+            attributes.pop('group_id', None)
+            attributes.pop('name_embedding', None)
+            attributes.pop('summary', None)
+            attributes.pop('created_at', None)
+            attributes.pop('labels', None)
 
     labels = record.get('labels', [])
     group_id = record.get('group_id')
