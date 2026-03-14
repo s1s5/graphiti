@@ -544,11 +544,7 @@ class EntityNode(Node):
             'created_at': self.created_at,
         }
 
-        if (
-            driver.provider == GraphProvider.KUZU
-            or driver.provider == GraphProvider.LADYBUGDB
-           
-        ):
+        if driver.provider == GraphProvider.KUZU or driver.provider == GraphProvider.LADYBUGDB:
             entity_data['attributes'] = json.dumps(self.attributes)
             entity_data['labels'] = list(set(self.labels + ['Entity']))
             result = await driver.execute_query(

@@ -178,11 +178,7 @@ async def add_nodes_and_edges_bulk_tx(
             'labels': list(set(node.labels + ['Entity'])),
         }
 
-        if (
-            driver.provider == GraphProvider.KUZU
-            or driver.provider == GraphProvider.LADYBUGDB
-           
-        ):
+        if driver.provider == GraphProvider.KUZU or driver.provider == GraphProvider.LADYBUGDB:
             attributes = convert_datetimes_to_strings(node.attributes) if node.attributes else {}
             entity_data['attributes'] = json.dumps(attributes)
         else:
@@ -209,11 +205,7 @@ async def add_nodes_and_edges_bulk_tx(
             'fact_embedding': edge.fact_embedding,
         }
 
-        if (
-            driver.provider == GraphProvider.KUZU
-            or driver.provider == GraphProvider.LADYBUGDB
-           
-        ):
+        if driver.provider == GraphProvider.KUZU or driver.provider == GraphProvider.LADYBUGDB:
             attributes = convert_datetimes_to_strings(edge.attributes) if edge.attributes else {}
             edge_data['attributes'] = json.dumps(attributes)
         else:
@@ -229,11 +221,7 @@ async def add_nodes_and_edges_bulk_tx(
         )
         await driver.graph_operations_interface.edge_save_bulk(None, driver, tx, edges)
 
-    elif (
-        driver.provider == GraphProvider.KUZU
-        or driver.provider == GraphProvider.LADYBUGDB
-       
-    ):
+    elif driver.provider == GraphProvider.KUZU or driver.provider == GraphProvider.LADYBUGDB:
         # FIXME: Kuzu's UNWIND does not currently support STRUCT[] type properly, so we insert the data one by one instead for now.
         episode_query = get_episode_node_save_bulk_query(driver.provider)
         for episode in episodes:

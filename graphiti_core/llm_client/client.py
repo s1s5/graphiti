@@ -117,11 +117,13 @@ class LLMClient(ABC):
         stop=stop_after_attempt(4),
         wait=wait_random_exponential(multiplier=10, min=5, max=120),
         retry=retry_if_exception(is_server_or_retry_error),
-        after=lambda retry_state: logger.warning(
-            f'Retrying {retry_state.fn.__name__ if retry_state.fn else "function"} after {retry_state.attempt_number} attempts...'
-        )
-        if retry_state.attempt_number > 1
-        else None,
+        after=lambda retry_state: (
+            logger.warning(
+                f'Retrying {retry_state.fn.__name__ if retry_state.fn else "function"} after {retry_state.attempt_number} attempts...'
+            )
+            if retry_state.attempt_number > 1
+            else None
+        ),
         reraise=True,
     )
     async def _generate_response_with_retry(
