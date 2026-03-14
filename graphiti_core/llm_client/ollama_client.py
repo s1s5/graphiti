@@ -18,7 +18,7 @@ import json
 import logging
 import re
 import typing
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from openai import AsyncOpenAI
@@ -27,7 +27,7 @@ else:
         from openai import AsyncOpenAI
     except ImportError:
         raise ImportError(
-            'openai is required for OllamaClient. Install it with: pip install graphiti-core[openai]'
+            "openai is required for OllamaClient. Install it with: pip install graphiti-core[openai]"
         ) from None
 
 from pydantic import BaseModel, ValidationError
@@ -38,9 +38,9 @@ from .config import LLMConfig, ModelSize
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = 'llama3'
+DEFAULT_MODEL = "llama3"
 DEFAULT_MAX_TOKENS = 2048
-DEFAULT_BASE_URL = 'http://localhost:11434/v1'
+DEFAULT_BASE_URL = "http://localhost:11434/v1"
 DEFAULT_TEMPERATURE = 0.1  # Low temperature for structured output
 DEFAULT_MAX_RETRIES = 10
 
@@ -59,7 +59,7 @@ class OllamaConfig(LLMConfig):
     ):
         # Ollama uses "ollama" as default api key
         super().__init__(
-            api_key=api_key or 'ollama',
+            api_key=api_key or "ollama",
             model=model or DEFAULT_MODEL,
             base_url=base_url or DEFAULT_BASE_URL,
             temperature=temperature,
@@ -112,7 +112,7 @@ class OllamaClient(LLMClient):
         except json.JSONDecodeError:
             pass
         # Try to extract from ```json ... ``` block
-        json_match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
+        json_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
         if json_match:
             try:
                 return json.loads(json_match.group(1))
@@ -120,7 +120,7 @@ class OllamaClient(LLMClient):
                 pass
 
         # Try to extract from any ``` ... ``` block
-        code_match = re.search(r'```\s*(\{.*?\})\s*```', text, re.DOTALL)
+        code_match = re.search(r"```\s*(\{.*?\})\s*```", text, re.DOTALL)
         if code_match:
             try:
                 return json.loads(code_match.group(1))
@@ -128,7 +128,7 @@ class OllamaClient(LLMClient):
                 pass
 
         # Try to find raw JSON object
-        json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text)
+        json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text)
         if json_match:
             try:
                 return json.loads(json_match.group(0))
@@ -141,7 +141,7 @@ class OllamaClient(LLMClient):
         except json.JSONDecodeError:
             pass
 
-        logger.warning(f'Failed to extract JSON from response: {text[:200]}...')
+        logger.warning(f"Failed to extract JSON from response: {text[:200]}...")
         return {}
 
     async def _generate_response(
@@ -154,14 +154,19 @@ class OllamaClient(LLMClient):
         # Convert messages to OpenAI format
         msgs: list[dict] = []
         for m in messages:
-            if m.role == 'user':
-                msgs.append({'role': 'user', 'content': m.content})
-            elif m.role == 'system':
+            if m.role == "user":
+                msgs.append({"role": "user", "content": m.content})
+            elif m.role == "system":
                 if response_model:
-                    content = m.content + f"\n\n以下のJSON形式で正確に回答してください:\n```json\n{response_model.model_json_schema()}\n```"
-                msgs.append({'role': 'system', 'content': content})
+                    content = (
+                        m.content
+                        + f"\n\n以下のJSON形式で正確に回答してください:\n```json\n{response_model.model_json_schema()}\n```"
+                    )
+                msgs.append({"role": "system", "content": content})
         if response_model and msgs[-1]["role"] == "user":
-            msgs[-1]["content"] += f"\n\n以下のJSON形式で正確に回答してください:\n```json\n{response_model.model_json_schema()}\n```"
+            msgs[-1][
+                "content"
+            ] += f"\n\n以下のJSON形式で正確に回答してください:\n```json\n{response_model.model_json_schema()}\n```"
 
         # Determine which model to use based on model_size
         model = self.small_model if model_size == ModelSize.small else self.model
@@ -170,24 +175,36 @@ class OllamaClient(LLMClient):
         # Use low temperature for structured output consistency
         temperature = self.temperature if self.temperature > 0 else DEFAULT_TEMPERATURE
 
+        response_format: dict[str, Any] = {"type": "json_object"}
+        if response_model is not None:
+            schema_name = getattr(response_model, "__name__", "structured_response")
+            json_schema = response_model.model_json_schema()
+            response_format = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "schema": json_schema,
+                },
+            }
+
         last_error: Exception | None = None
         for attempt in range(self.max_retries):
             try:
                 response = await self.client.chat.completions.create(
                     model=model,
                     messages=msgs,
-                    temperature=temperature + 0.1 * attempt,
+                    temperature=min(temperature + 0.1 * attempt, 0.5),
                     max_tokens=max_tokens or self.max_tokens,
-                    # Note: response_format not supported by Ollama in all versions
+                    response_format=response_format,  # type: ignore[arg-type]
                 )
-                result = response.choices[0].message.content or ''
+                result = response.choices[0].message.content or ""
 
                 # Extract JSON from response
                 extracted = self._extract_json(result)
 
                 # Retry if extraction failed (empty dict)
                 if not extracted:
-                    logger.warning(f'Attempt {attempt + 1}: No JSON extracted, retrying...')
+                    logger.warning(f"Attempt {attempt + 1}: No JSON extracted, retrying...")
                     continue
 
                 # Validate with response_model if provided
@@ -196,7 +213,7 @@ class OllamaClient(LLMClient):
                         validated = response_model.model_validate(extracted)
                         return validated.model_dump()
                     except ValidationError as e:
-                        logger.warning(f'Attempt {attempt + 1}: Validation error: {e}')
+                        logger.warning(f"Attempt {attempt + 1}: Validation error: {e}")
                         # Retry on validation failure
                         continue
 
@@ -204,11 +221,11 @@ class OllamaClient(LLMClient):
 
             except Exception as e:
                 last_error = e
-                logger.warning(f'Attempt {attempt + 1}: Error: {e}')
+                logger.warning(f"Attempt {attempt + 1}: Error: {e}")
                 continue
 
         # All retries exhausted
-        logger.error(f'All {self.max_retries} retries failed')
+        logger.error(f"All {self.max_retries} retries failed")
         if last_error:
             raise last_error
-        raise ValueError(f'Failed to generate valid response after {self.max_retries} retries')
+        raise ValueError(f"Failed to generate valid response after {self.max_retries} retries")
