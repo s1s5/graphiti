@@ -1095,7 +1095,7 @@ requires-dist = [
     { name = "voyageai", marker = "extra == 'dev'", specifier = ">=0.2.3" },
     { name = "voyageai", marker = "extra == 'voyageai'", specifier = ">=0.2.3" },
 ]
-provides-extras = ["anthropic", "groq", "google-genai", "kuzu", "real-ladybug", "falkordb", "voyageai", "neo4j-opensearch", "sentence-transformers", "neptune", "tracing", "dev"]
+provides-extras = ["anthropic", "groq", "google-genai", "kuzu", "real-ladybug", "falkordb", "voyageai", "gliner2", "neo4j-opensearch", "sentence-transformers", "neptune", "tracing", "dev"]
 
 [[package]]
 name = "groq"
